@@ -16,20 +16,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.example.eventmanagement.data.model.Event
-import com.example.eventmanagement.ui.theme.*
+import com.example.eventmanagement.ui.theme.PrimaryPurple
 import com.example.eventmanagement.ui.viewmodel.EventViewModel
 import java.text.SimpleDateFormat
 import java.util.*
-import kotlin.collections.forEach
-import kotlin.let
-import kotlin.takeIf
-import kotlin.text.isNotBlank
-import kotlin.text.toIntOrNull
 
 /**
  * Create/Edit Event Screen
  * Support mode create baru atau update event existing
- * Dipanggil dari: HomeScreen (FAB), EventDetailScreen (Edit Button)
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +37,7 @@ fun CreateEventScreen(
     val errorMessage by viewModel.errorMessage.collectAsState()
     val successMessage by viewModel.successMessage.collectAsState()
 
-    // State form (pre-fill jika mode edit)
+    // State form
     var title by remember { mutableStateOf(editEvent?.title ?: "") }
     var date by remember { mutableStateOf(editEvent?.date ?: getCurrentDate()) }
     var time by remember { mutableStateOf(editEvent?.time ?: getCurrentTime()) }
@@ -54,7 +48,15 @@ fun CreateEventScreen(
     val statusOptions = listOf("upcoming", "ongoing", "completed", "cancelled")
     var selectedStatus by remember { mutableStateOf(editEvent?.status ?: "upcoming") }
 
-    // Handle success (nav back otomatis)
+    // State untuk error judul
+    var showTitleError by remember { mutableStateOf(false) }
+
+    // Reset error saat user mengetik
+    LaunchedEffect(title) {
+        if (title.isNotBlank()) showTitleError = false
+    }
+
+    // Handle success → kembali otomatis
     LaunchedEffect(successMessage) {
         if (successMessage != null) {
             onNavigateBack()
@@ -63,15 +65,21 @@ fun CreateEventScreen(
     }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(if (isEditMode) "Update Event" else "Buat Event Baru", fontWeight = FontWeight.Bold) },
+                title = {
+                    Text(
+                        text = if (isEditMode) "Update Event" else "Buat Event Baru",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = {
-                        viewModel.clearEditEvent()  // Clear jika batal
+                        viewModel.clearEditEvent()
                         onNavigateBack()
                     }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -80,94 +88,108 @@ fun CreateEventScreen(
                 )
             )
         }
-    ) { padding ->
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())  // Tambahkan scroll
+                .padding(paddingValues)
+                .verticalScroll(rememberScrollState())
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Error Message jika ada
+            // Error dari server
             errorMessage?.let {
                 ErrorCard(message = it, onDismiss = { viewModel.clearErrorMessage() })
             }
 
-            // Form Fields
+            // Judul Event dengan Icon Title (bukan huruf T)
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
                 label = { Text("Judul Event") },
-                leadingIcon = { Icon(Icons.Default.Title, null) },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Title,  // Icon judul yang proper
+                        contentDescription = "Judul"
+                    )
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                singleLine = true
+                singleLine = true,
+                isError = showTitleError,
+                supportingText = if (showTitleError) {
+                    { Text("Judul event wajib diisi") }
+                } else null
             )
 
+            // Tanggal
             OutlinedTextField(
                 value = date,
                 onValueChange = { date = it },
                 label = { Text("Tanggal (YYYY-MM-DD)") },
-                leadingIcon = { Icon(Icons.Default.DateRange, null) },
+                leadingIcon = { Icon(Icons.Default.DateRange, contentDescription = "Tanggal") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
 
+            // Waktu
             OutlinedTextField(
                 value = time,
                 onValueChange = { time = it },
                 label = { Text("Waktu (HH:MM)") },
-                leadingIcon = { Icon(Icons.Default.AccessTime, null) },
+                leadingIcon = { Icon(Icons.Default.AccessTime, contentDescription = "Waktu") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
 
+            // Lokasi
             OutlinedTextField(
                 value = location,
                 onValueChange = { location = it },
                 label = { Text("Lokasi") },
-                leadingIcon = { Icon(Icons.Default.LocationOn, null) },
+                leadingIcon = { Icon(Icons.Default.LocationOn, contentDescription = "Lokasi") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true
             )
 
+            // Deskripsi
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
                 label = { Text("Deskripsi") },
-                leadingIcon = { Icon(Icons.Default.Description, null) },
+                leadingIcon = { Icon(Icons.Default.Description, contentDescription = "Deskripsi") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 minLines = 3,
                 maxLines = 5
             )
 
+            // Kapasitas
             OutlinedTextField(
                 value = capacityText,
-                onValueChange = { capacityText = it },
+                onValueChange = { capacityText = it.filter { char -> char.isDigit() } },
                 label = { Text("Kapasitas (opsional)") },
-                leadingIcon = { Icon(Icons.Default.PersonAdd, null) },
+                leadingIcon = { Icon(Icons.Default.PersonAdd, contentDescription = "Kapasitas") },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
 
-            // Status Dropdown
+            // Dropdown Status
             ExposedDropdownMenuBox(
                 expanded = expandedStatus,
-                onExpandedChange = { expandedStatus = !expandedStatus }
+                onExpandedChange = { expandedStatus = it }
             ) {
                 OutlinedTextField(
                     value = getStatusLabel(selectedStatus),
                     onValueChange = { },
                     readOnly = true,
                     label = { Text("Status") },
-                    leadingIcon = { Icon(Icons.Default.Info, null) },
+                    leadingIcon = { Icon(Icons.Default.Info, contentDescription = "Status") },
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expandedStatus) },
                     modifier = Modifier
                         .menuAnchor()
@@ -192,38 +214,45 @@ fun CreateEventScreen(
                 }
             }
 
-            // Tombol Buat/Update Event
+            // Tombol Submit
             Button(
                 onClick = {
+                    if (title.trim().isBlank()) {
+                        showTitleError = true
+                        return@Button
+                    }
+
                     val capacity = capacityText.toIntOrNull()?.takeIf { it > 0 }
                     val newEvent = Event(
-                        id = editEvent?.id,  // Keep ID untuk update
-                        title = title,
-                        date = date,
-                        time = time,
-                        location = location,
-                        description = description.takeIf { it.isNotBlank() },
+                        id = editEvent?.id,
+                        title = title.trim(),
+                        date = date.trim(),
+                        time = time.trim(),
+                        location = location.trim(),
+                        description = description.takeIf { it.isNotBlank() }?.trim(),
                         capacity = capacity,
-                        status = selectedStatus  // Gunakan selectedStatus dari dropdown
+                        status = selectedStatus
                     )
 
                     if (isEditMode) {
-                        viewModel.updateEvent(newEvent) { onNavigateBack() }
+                        viewModel.updateEvent(newEvent)
                     } else {
-                        viewModel.createEvent(newEvent) { onNavigateBack() }
+                        viewModel.createEvent(newEvent)
                     }
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
                 enabled = !isLoading && title.isNotBlank(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryPurple
-                ),
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryPurple),
                 shape = RoundedCornerShape(12.dp)
             ) {
                 if (isLoading) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp))
+                    CircularProgressIndicator(
+                        color = Color.White,
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp
+                    )
                 } else {
                     Row(
                         horizontalArrangement = Arrangement.Center,
@@ -242,13 +271,12 @@ fun CreateEventScreen(
                 }
             }
 
-            // Extra space di bottom agar tombol tidak terpotong
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
 
-// Helper functions untuk default values
+// Helper functions
 private fun getCurrentDate(): String {
     val sdf = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
     return sdf.format(Date())
@@ -259,13 +287,12 @@ private fun getCurrentTime(): String {
     return sdf.format(Date())
 }
 
-// Helper untuk label status
 private fun getStatusLabel(status: String): String {
     return when (status) {
         "upcoming" -> "Akan Datang"
         "ongoing" -> "Berlangsung"
         "completed" -> "Selesai"
         "cancelled" -> "Dibatalkan"
-        else -> status
+        else -> status.replaceFirstChar { it.uppercase() }
     }
 }
