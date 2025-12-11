@@ -8,9 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.annotation.RequiresApi
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -39,7 +37,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    EventManagementApp(viewModel)
+                    EventManagementApp(viewModel = viewModel)
                 }
             }
         }
@@ -51,60 +49,55 @@ class MainActivity : ComponentActivity() {
 fun EventManagementApp(viewModel: EventViewModel) {
     val navController = rememberNavController()
 
-    Scaffold(
-        // Hapus bottomBar karena navigasi sudah dipindah ke top bar (Menu untuk Detail, Person untuk Profil)
-    ) { padding ->
+    // Hapus Scaffold di sini karena setiap screen sudah handle TopBar sendiri
+    // Ini lebih fleksibel dan menghindari padding ganda
+    NavHost(
+        navController = navController,
+        startDestination = Screen.Home.route
+    ) {
+        composable(Screen.Home.route) {
+            HomeScreen(
+                viewModel = viewModel,
+                navController = navController
+            )
+        }
 
-        NavHost(
-            navController = navController,
-            startDestination = Screen.Home.route,
-            modifier = Modifier.padding(padding)
-        ) {
+        composable(Screen.Profile.route) {
+            ProfileScreen(
+                navController = navController,
+                viewModel = viewModel
+            )
+        }
 
-            composable(Screen.Home.route) {
-                HomeScreen(
-                    viewModel = viewModel,
-                    navController = navController
-                )
-            }
+        composable(Screen.CreateEvent.route) {
+            CreateEventScreen(
+                viewModel = viewModel,
+                onNavigateBack = {
+                    viewModel.clearEditEvent()  // Penting: bersihkan edit mode
+                    navController.popBackStack()
+                }
+            )
+        }
 
-            composable(Screen.Profile.route) {
-                ProfileScreen(
-                    navController = navController,
-                    viewModel = viewModel
-                )
-            }
+        composable(
+            route = Screen.EventDetail.route,
+            arguments = listOf(
+                navArgument("eventId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val eventId = backStackEntry.arguments?.getString("eventId") ?: return@composable
+            EventDetailScreen(
+                eventId = eventId,
+                viewModel = viewModel,
+                navController = navController
+            )
+        }
 
-
-            composable(Screen.CreateEvent.route) {
-                CreateEventScreen(
-                    viewModel = viewModel,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    }
-                )
-            }
-
-            composable(
-                route = Screen.EventDetail.route,
-                arguments = listOf(
-                    navArgument("eventId") { type = NavType.StringType }
-                )
-            ) { backStackEntry ->
-                val eventId = backStackEntry.arguments?.getString("eventId") ?: ""
-                EventDetailScreen(
-                    eventId = eventId,
-                    viewModel = viewModel,
-                    navController = navController
-                )
-            }
-
-            composable(Screen.EventsByDate.route) {
-                EventsByDateScreen(
-                    viewModel = viewModel,
-                    navController = navController
-                )
-            }
+        composable(Screen.EventsByDate.route) {
+            EventsByDateScreen(
+                viewModel = viewModel,
+                navController = navController
+            )
         }
     }
 }
